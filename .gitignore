@@ -1,0 +1,53 @@
+# AGN-DB Project .gitignore
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+!logs/.gitkeep
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.bak
+*.tmp
+*.temp
+
+# Docker
+.dockerignore
+
+# Node.js / Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Database files
+*.db
+*.sqlite3
+*.sqlite
+
+# Build outputs
+dist/
+build/
+out/ 
+
+# Cursor
+.cursor/

@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  database:
+    build:
+      context: ./database
+    container_name: agndb-database
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=agndb
+      - MYSQL_USER=agndb_user
+      - MYSQL_PASSWORD=agndb_password
+      - GENERATE_LARGE_DATASET=false
+    volumes:
+      - agndb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u$$MYSQL_USER", "-p$$MYSQL_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    container_name: agndb-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - DB_HOST=database
+      - DB_PORT=3306
+      - DB_USER=agndb_user
+      - DB_PASSWORD=agndb_password
+      - DB_NAME=agndb
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./backend:/app
+      - backend-logs:/app/logs
+    depends_on:
+      database:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: agndb-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    # For development (using Vite dev server instead of Nginx)
+    # Uncomment these lines and comment out the build section above
+    # image: node:20-alpine
+    # command: sh -c "cd /app && npm install && npm run dev -- --host 0.0.0.0"
+    # volumes:
+    #   - ./frontend:/app
+    #   - /app/node_modules
+
+volumes:
+  agndb-data:
+  backend-logs: 

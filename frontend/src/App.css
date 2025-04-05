@@ -1,0 +1,14 @@
+.rule-fields, .rule-operators, .rule-value, .ruleGroup-combinators {
+    background-color: white;
+    border-radius: 4px;
+    padding-left: 5px;
+}
+
+.ruleGroup-addGroup, .ruleGroup-addRule {
+    background-color: gray;
+    color: white;
+    padding-left: 5px;
+    padding-right: 5px;
+    border-radius: 4px;
+    font-size: 15px;
+}
