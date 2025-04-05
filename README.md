@@ -454,9 +454,9 @@ The search interface is powered by `react-querybuilder` with:
 3. **Group Support**: AND/OR condition groups
 4. **JSON Query Generation**: Creates structured query for the backend
 
-## Database Schema
+## Database Schema (W.I.P)
 
-### Entity Relationship Diagram
+### Entity Relationship Diagram (W.I.P)
 
 ```
 ┌─────────────┐       ┌────────────────┐
