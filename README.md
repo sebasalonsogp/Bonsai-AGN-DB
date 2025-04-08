@@ -270,7 +270,7 @@ For local development without Docker:
    - `agndb-frontend`: Nginx serving static files on port 80
 
 2. **Access the application**
-   - Frontend: http://localhost
+   - Frontend: http://localhost:5173
    - Backend API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
 
@@ -716,6 +716,36 @@ docker-compose exec backend pytest --cov=app
    - Verify that the API URL is correctly set in the environment
    - Check browser console for JavaScript errors
 
+
+4. ### Database Tables Not Created
+If you encounter an error like "Table 'agndb.source_agn' doesn't exist", the database initialization scripts did not run properly. Fix this by:
+
+   1. Stop all containers:
+      ```bash
+      docker-compose -f docker-compose.dev.yml down
+      ```
+
+   2. Remove volumes to force reinitialization:
+      ```bash
+      docker-compose -f docker-compose.dev.yml down -v
+      ```
+
+   3. Restart the containers:
+      ```bash
+      docker-compose -f docker-compose.dev.yml up -d
+      ```
+
+   4. If the issue persists, manually initialize the database:
+      ```bash
+      # On Linux/Mac:
+      docker exec -i agndb-database-dev mysql -u agndb_user -pagndb_password agndb < database/scripts/01_schema.sql
+      docker exec -i agndb-database-dev mysql -u agndb_user -pagndb_password agndb < database/scripts/02_sample_data.sql
+      
+      # On Windows PowerShell:
+      Get-Content database\scripts\01_schema.sql | docker exec -i agndb-database-dev mysql -u agndb_user -pagndb_password agndb
+      Get-Content database\scripts\02_sample_data.sql | docker exec -i agndb-database-dev mysql -u agndb_user -pagndb_password agndb
+   ```
+
 ### Frequently Asked Questions
 
 1. **How do I add more sample data?**
@@ -744,3 +774,6 @@ docker-compose exec backend pytest --cov=app
 ## Acknowledgements
 
 This project is designed for educational and research purposes in astrophysics. It provides a platform for exploring and analyzing Active Galactic Nuclei data. 
+
+
+

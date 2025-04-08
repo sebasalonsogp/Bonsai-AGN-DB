@@ -19,12 +19,14 @@ COPY requirements.txt /requirements.txt
 
 # Install Python and dependencies
 RUN apt-get update \
-    && apt-get install -y python3 python3-pip \
+    && apt-get install -y python3 python3-pip dos2unix \
     && pip3 install -r /requirements.txt \
     && mkdir -p /scripts
 
-# Make Python script executable
-RUN chmod +x /docker-entrypoint-initdb.d/03_generate_data.py
+# Fix line endings and make scripts executable
+RUN find /docker-entrypoint-initdb.d/ -type f -name "*.sh" -exec dos2unix {} \; \
+    && find /docker-entrypoint-initdb.d/ -type f -name "*.sh" -exec chmod +x {} \; \
+    && chmod +x /docker-entrypoint-initdb.d/03_generate_data.py
 
 # Expose MariaDB port
 EXPOSE 3306

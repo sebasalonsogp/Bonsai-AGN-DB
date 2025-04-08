@@ -199,50 +199,62 @@ def main():
         
         # Check if database already has data
         cursor.execute("SELECT COUNT(*) FROM source_agn")
-        existing_count = cursor.fetchone()[0]
+        source_count = cursor.fetchone()[0]
         
-        if existing_count > 0:
-            confirm = input(f"Database already has {existing_count} sources. Continue? (y/n): ")
-            if confirm.lower() != 'y':
-                print("Aborting.")
-                return
+        if source_count >= NUM_SOURCES:
+            print(f"Database already has {source_count} sources, which meets or exceeds the target of {NUM_SOURCES}.")
+            print("Skipping data generation. To regenerate data, please clear the database first.")
+            return
         
-        # Generate sources in batches for efficiency
+        # If we have some data but less than target, only add what's needed
+        sources_to_add = NUM_SOURCES - source_count
+        if source_count > 0:
+            print(f"Database already has {source_count} sources. Adding {sources_to_add} more...")
+            populate_source_agn(cursor, sources_to_add)
+        else:
+            print(f"Database is empty. Adding {NUM_SOURCES} sources...")
+            populate_source_agn(cursor, NUM_SOURCES)
+            
+        conn.commit()
+        
+        # Add associated data for new sources
+        print("Adding associated data...")
+        cursor.execute("SELECT agn_id FROM source_agn")
+        source_ids = [row[0] for row in cursor.fetchall()]
+        
+        # Process in batches to avoid large transactions
         batch_size = 100
-        for batch_start in range(101, NUM_SOURCES + 101, batch_size):  # Start from 101 to avoid conflicts with sample data
-            # Generate a batch of sources
-            for i in range(batch_start, min(batch_start + batch_size, NUM_SOURCES + 101)):
-                # Create source
-                ra = generate_ra()
-                dec = generate_dec()
-                cursor.execute(
-                    "INSERT IGNORE INTO source_agn (ra, declination) VALUES (%s, %s)",
-                    (ra, dec)
-                )
-                source_id = cursor.lastrowid
+        total_sources = len(source_ids)
+        
+        for i in range(0, total_sources, batch_size):
+            batch = source_ids[i:i+batch_size]
+            print(f"Processing batch {i//batch_size + 1}/{(total_sources + batch_size - 1)//batch_size}...")
+            
+            for source_id in batch:
+                # Skip if already has data
+                cursor.execute("SELECT COUNT(*) FROM photometry WHERE agn_id = %s", (source_id,))
+                if cursor.fetchone()[0] == 0:
+                    generate_photometry(source_id, conn)
                 
-                # Generate related data
-                generate_photometry(source_id, conn)
-                generate_redshift(source_id, conn)
-                generate_classification(source_id, conn)
+                cursor.execute("SELECT COUNT(*) FROM redshift_measurement WHERE agn_id = %s", (source_id,))
+                if cursor.fetchone()[0] == 0:
+                    generate_redshift(source_id, conn)
+                
+                cursor.execute("SELECT COUNT(*) FROM classification WHERE agn_id = %s", (source_id,))
+                if cursor.fetchone()[0] == 0:
+                    generate_classification(source_id, conn)
             
-            # Commit batch
             conn.commit()
-            
-            # Progress update
-            progress = min(100, (batch_start - 101 + batch_size) / NUM_SOURCES * 100)
-            elapsed = time.time() - start_time
-            print(f"Progress: {progress:.1f}% ({min(batch_start + batch_size - 101, NUM_SOURCES)} / {NUM_SOURCES}), "
-                  f"Time elapsed: {elapsed:.1f}s")
-    
+            print(f"Completed batch {i//batch_size + 1}")
+        
+        elapsed_time = time.time() - start_time
+        print(f"Data generation complete! Generated data for {NUM_SOURCES} sources in {elapsed_time:.2f} seconds.")
+        
     except Exception as e:
+        print(f"Error generating data: {e}")
         conn.rollback()
-        print(f"Error: {e}")
     finally:
         conn.close()
-    
-    total_time = time.time() - start_time
-    print(f"Data generation complete. Total time: {total_time:.1f}s")
 
 
 if __name__ == "__main__":

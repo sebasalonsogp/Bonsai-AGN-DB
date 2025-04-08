@@ -40,3 +40,4 @@ RA/DEC stays visible but their checkboxes are deselected
 *INSERT HERE*
 
 # BUG 2
+
