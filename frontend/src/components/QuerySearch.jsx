@@ -452,7 +452,29 @@ export default function QuerySearch() {
       {results.length > 0 && (
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <div className="flex justify-between items-center p-4 border-b">
-            <div className="text-lg font-medium">Results ({pagination.total})</div>
+            <div className="flex items-center space-x-4">
+              <div className="text-lg font-medium">Results ({pagination.total})</div>
+              <div className="flex items-center space-x-2 bg-blue-50 px-3 py-1 rounded">
+                <input
+                  type="checkbox"
+                  checked={results.length > 0 && selectedRows.length === results.length}
+                  onChange={() => {
+                    if (selectedRows.length === results.length) {
+                      setSelectedRows([]);
+                    } else {
+                      setSelectedRows([...results]);
+                    }
+                  }}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                />
+                <span className="text-blue-800 font-medium">Select All Results</span>
+                {selectedRows.length > 0 && (
+                  <span className="text-blue-600 text-sm">
+                    ({selectedRows.length} selected)
+                  </span>
+                )}
+              </div>
+            </div>
             <div className="flex space-x-2">
               <button onClick={() => setShowColumnSelector(!showColumnSelector)} className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200">Columns</button>
               <button onClick={openExportDialog} className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200">Export</button>
@@ -490,7 +512,21 @@ export default function QuerySearch() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Select
+                    <div className="flex items-center space-x-2 bg-blue-50 p-2 rounded">
+                      <input
+                        type="checkbox"
+                        checked={results.length > 0 && selectedRows.length === results.length}
+                        onChange={() => {
+                          if (selectedRows.length === results.length) {
+                            setSelectedRows([]);
+                          } else {
+                            setSelectedRows([...results]);
+                          }
+                        }}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                      />
+                      <span className="text-blue-800">Select All</span>
+                    </div>
                   </th>
                   {getVisibleColumns().map(column => (
                     <th key={column} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
