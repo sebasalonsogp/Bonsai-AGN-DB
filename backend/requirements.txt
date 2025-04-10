@@ -1,21 +1,35 @@
 # FastAPI and ASGI server
-fastapi>=0.110.0
-uvicorn[standard]>=0.27.0
+fastapi==0.109.2
+uvicorn==0.27.1
 
 # Database
-sqlalchemy>=2.0.0
-alembic>=1.13.0
-asyncmy>=0.2.9  # Async MySQL/MariaDB driver
+sqlalchemy==2.0.27
+asyncmy==0.2.7
+alembic==1.13.1
 
 # Validation and serialization
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
+pydantic==2.6.1
+pydantic-settings==2.1.0
 email-validator>=2.0.0
 
 # Logging
-loguru>=0.7.0
+loguru==0.7.2
 
 # Utilities
+python-jose==3.3.0
+passlib==1.7.4
+python-multipart==0.0.9
+
+# Testing
+pytest==8.0.1
+pytest-asyncio>=0.21.1
+httpx==0.26.0
+
+# SED Processing Dependencies
+matplotlib==3.8.2
+numpy==1.26.3
+
+# Additional dependencies
 python-dotenv>=1.0.0
 pytz>=2023.3
 orjson>=3.9.5
@@ -23,9 +37,4 @@ orjson>=3.9.5
 # Scientific/Astronomy
 pyvo>=1.5.0  # For Virtual Observatory
 astropy>=5.3.0  # Astronomy utilities
-pandas>=2.0.0  # Data manipulation
-
-# Testing
-pytest>=7.4.0
-pytest-asyncio>=0.21.1
-httpx>=0.25.0 
+pandas>=2.0.0  # Data manipulation 
