@@ -412,22 +412,25 @@ export const searchApi = {
  */
 export const processSED = async (data) => {
   try {
-    const response = await axios.post(`${import.meta.env.VITE_API_URL}/queries/sed/process`, data);
-    return response.data;
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/queries/sed/sed/process`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return response.json();
   } catch (error) {
     console.error('Error processing SED:', error);
     throw error;
   }
 };
 
-export const downloadSED = async (imageUrl) => {
+export const downloadSED = async (sed_name) => {
   try {
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-      throw new Error('Failed to download SED image');
-    }
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/queries/sed/sed/download/${sed_name}`);
     const blob = await response.blob();
-    downloadBlob(blob, 'sed_plot.png');
+    downloadBlob(blob, `${sed_name}.png`);
   } catch (error) {
     console.error('SED download failed:', error);
     throw error;
