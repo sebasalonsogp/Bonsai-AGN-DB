@@ -530,6 +530,72 @@ export default function QuerySearch() {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination Controls */}
+          <div className="px-4 py-3 flex items-center justify-between border-t border-gray-200">
+            <div className="flex-1 flex justify-between items-center">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing{' '}
+                  <span className="font-medium">{pagination.skip + 1}</span>
+                  {' '}-{' '}
+                  <span className="font-medium">{Math.min(pagination.skip + pagination.limit, pagination.total)}</span>
+                  {' '}of{' '}
+                  <span className="font-medium">{pagination.total}</span>
+                  {' '}results
+                </p>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={goToFirstPage}
+                  disabled={getCurrentPage() === 1}
+                  className={`px-3 py-1 rounded ${
+                    getCurrentPage() === 1
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                  }`}
+                >
+                  First
+                </button>
+                <button
+                  onClick={goToPreviousPage}
+                  disabled={getCurrentPage() === 1}
+                  className={`px-3 py-1 rounded ${
+                    getCurrentPage() === 1
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                  }`}
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-1">
+                  Page {getCurrentPage()} of {getTotalPages()}
+                </span>
+                <button
+                  onClick={goToNextPage}
+                  disabled={getCurrentPage() === getTotalPages()}
+                  className={`px-3 py-1 rounded ${
+                    getCurrentPage() === getTotalPages()
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                  }`}
+                >
+                  Next
+                </button>
+                <button
+                  onClick={goToLastPage}
+                  disabled={getCurrentPage() === getTotalPages()}
+                  className={`px-3 py-1 rounded ${
+                    getCurrentPage() === getTotalPages()
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                  }`}
+                >
+                  Last
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
