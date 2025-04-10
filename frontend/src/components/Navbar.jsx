@@ -3,7 +3,6 @@ import clsx from "clsx";
 import { Menu, X, Database } from "lucide-react";
 import NavButton from "./NavButton";
 
-
 export default function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -54,5 +53,5 @@ export default function Navbar() {
                 <NavButton name="Information" route='information' />
             </div>
         </div>
-    </header>)
+    </header>);
 }

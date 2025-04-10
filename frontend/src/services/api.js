@@ -217,7 +217,7 @@ export const searchApi = {
    */
   executeQuery: (query, params = {}) => {
     const queryString = new URLSearchParams(params).toString();
-    return apiRequest(`/search?${queryString}`, {
+    return apiRequest(`/queries/search/?${queryString}`, {
       method: 'POST',
       body: JSON.stringify(query)
     });
@@ -236,7 +236,7 @@ export const searchApi = {
     const timeout = options.timeout || 60000;
     
     const queryString = new URLSearchParams(params).toString();
-    const promise = apiRequest(`/search?${queryString}`, {
+    const promise = apiRequest(`/queries/search/?${queryString}`, {
       method: 'POST',
       body: JSON.stringify(query),
       signal: { abortController: controller }
@@ -253,7 +253,7 @@ export const searchApi = {
    * @returns {Promise<any>} Available fields data
    */
   getAvailableFields: () => {
-    return apiRequest('/search/available-fields');
+    return apiRequest('/queries/search/available-fields');
   },
   
   /**
@@ -405,6 +405,58 @@ export const searchApi = {
       cancel: () => controller.abort()
     };
   }
+};
+
+/**
+ * API endpoints for SED analysis
+ */
+export const processSED = async (data) => {
+  try {
+    const response = await axios.post(`${import.meta.env.VITE_API_URL}/queries/sed/process`, data);
+    return response.data;
+  } catch (error) {
+    console.error('Error processing SED:', error);
+    throw error;
+  }
+};
+
+export const downloadSED = async (imageUrl) => {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error('Failed to download SED image');
+    }
+    const blob = await response.blob();
+    downloadBlob(blob, 'sed_plot.png');
+  } catch (error) {
+    console.error('SED download failed:', error);
+    throw error;
+  }
+};
+
+export const runCIGALE = async (parameters) => {
+  const response = await fetch('/api/v1/queries/sed/cigale/run', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(parameters),
+  });
+  return response.json();
+};
+
+export const getCIGALEStatus = async (jobId) => {
+  const response = await fetch(`/api/v1/queries/sed/cigale/status/${jobId}`, {
+    method: 'GET',
+  });
+  return response.json();
+};
+
+export const downloadCIGALEResults = async (jobId) => {
+  const response = await fetch(`/api/v1/queries/sed/cigale/download/${jobId}`, {
+    method: 'GET',
+  });
+  return response.blob();
 };
 
 export default {
