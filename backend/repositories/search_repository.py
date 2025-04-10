@@ -314,9 +314,9 @@ class SearchRepository:
         
         # Handle common operators
         try:
-            if operator == 'equals':
+            if operator == 'equals' or operator == '=':
                 return column == value
-            elif operator == 'notEquals':
+            elif operator == 'notEquals' or operator == '!=':
                 return column != value
             elif operator == 'greaterThan' or operator == '>':
                 return column > value

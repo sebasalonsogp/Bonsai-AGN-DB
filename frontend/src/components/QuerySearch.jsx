@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { QueryBuilder } from 'react-querybuilder';
 import 'react-querybuilder/dist/query-builder.css';
-import { searchApi } from '../services/api';
+import { searchApi, processSED, downloadSED } from '../services/api';
 import ExportDialog from './ExportDialog';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
+import { LineChart } from 'lucide-react';
 
 export default function QuerySearch() {
   const [query, setQuery] = useState({ combinator: 'and', rules: [] });
@@ -22,6 +23,13 @@ export default function QuerySearch() {
   const searchRequestRef = useRef(null);
   const LONG_QUERY_THRESHOLD = 10000;
   const initialVisibilitySet = useRef(false);
+  const [selectedSource, setSelectedSource] = useState(null);
+  const [sedImage, setSedImage] = useState(null);
+  const [sedLoading, setSedLoading] = useState(false);
+  const [sedError, setSedError] = useState(null);
+  const [showSedModal, setShowSedModal] = useState(false);
+  const [selectedPhotometry, setSelectedPhotometry] = useState([]);
+  const [selectedRows, setSelectedRows] = useState([]);
 
   const fields = [
     { name: 'agn_id', label: 'AGN ID', inputType: 'number' },
@@ -40,7 +48,7 @@ export default function QuerySearch() {
     { name: 'xray_class', label: 'X-ray Class' },
     { name: 'best_class', label: 'Best Class' },
     { name: 'image_class', label: 'Image Class' },
-    { name: 'sed_class', label: 'SED Class' },
+    { name: 'sed_class', label: 'SED Class' }
   ];
 
   const fieldLabels = fields.reduce((acc, field) => {
@@ -238,6 +246,163 @@ export default function QuerySearch() {
     setError({ message: 'Search cancelled by user' });
   };
 
+  const handleSedAnalysis = async (source) => {
+    setSelectedSource(source);
+    setShowSedModal(true);
+    setSedLoading(true);
+    setSedError(null);
+    setSelectedPhotometry([]);
+    setSedImage(null);
+    try {
+      // Get all photometry data points for the source
+      const photometryData = source.photometry || [];
+      if (photometryData.length === 0) {
+        throw new Error('No photometry data available for this source');
+      }
+      // Sort photometry data by wavelength
+      const sortedPhotometry = [...photometryData].sort((a, b) => a.wavelength - b.wavelength);
+      setSelectedPhotometry(sortedPhotometry);
+    } catch (err) {
+      setSedError(err.message || 'Failed to load photometry data');
+    } finally {
+      setSedLoading(false);
+    }
+  };
+
+  const handleRowSelection = (result, event) => {
+    // Only handle row clicks, not checkbox clicks
+    if (event.target.type === 'checkbox') {
+      return;
+    }
+    
+    setSelectedRows(prev => {
+      const isSelected = prev.some(r => r.agn_id === result.agn_id);
+      if (isSelected) {
+        return prev.filter(r => r.agn_id !== result.agn_id);
+      } else {
+        return [...prev, result];
+      }
+    });
+  };
+
+  const handleCheckboxChange = (result) => {
+    setSelectedRows(prev => {
+      const isSelected = prev.some(r => r.agn_id === result.agn_id);
+      if (isSelected) {
+        return prev.filter(r => r.agn_id !== result.agn_id);
+      } else {
+        return [...prev, result];
+      }
+    });
+  };
+
+  const handleGenerateSed = async () => {
+    if (selectedRows.length === 0) {
+      setSedError('Please select at least one source');
+      return;
+    }
+
+    setSedLoading(true);
+    setSedError(null);
+
+    try {
+      console.log('Starting SED generation for selected rows:', selectedRows);
+      
+      // Group photometry data by AGN ID to avoid duplicates
+      const agnData = {};
+      selectedRows.forEach(row => {
+        if (!agnData[row.agn_id]) {
+          agnData[row.agn_id] = {
+            agn_id: row.agn_id,
+            photometry: []
+          };
+        }
+        if (row.band_label && row.mag_value != null) {
+          agnData[row.agn_id].photometry.push({
+            band: row.band_label,
+            mag: row.mag_value
+          });
+        }
+      });
+
+      // Process each AGN's photometry data
+      const dataPoints = Object.values(agnData)
+        .map(agn => {
+          // Sort photometry by wavelength
+          const sortedPhotometry = agn.photometry.sort((a, b) => {
+            const wavelengthMap = {
+              'U': 0.36, 'B': 0.44, 'V': 0.55, 'R': 0.64, 'I': 0.79,
+              'J': 1.25, 'H': 1.65, 'K': 2.2
+            };
+            return wavelengthMap[a.band] - wavelengthMap[b.band];
+          });
+
+          // Convert to wavelength,flux pairs
+          return sortedPhotometry.map(phot => {
+            const wavelengthMap = {
+              'U': 0.36, 'B': 0.44, 'V': 0.55, 'R': 0.64, 'I': 0.79,
+              'J': 1.25, 'H': 1.65, 'K': 2.2
+            };
+            
+            const wavelengthMicrons = wavelengthMap[phot.band] || 0;
+            // Convert wavelength from microns to Angstroms (1 micron = 10000 Angstroms)
+            const wavelengthAngstroms = wavelengthMicrons * 10000;
+            // Convert magnitude to flux
+            const flux = Math.pow(10, -0.4 * phot.mag);
+            
+            console.log(`Processing AGN ${agn.agn_id}: band=${phot.band}, mag=${phot.mag}, wavelength=${wavelengthAngstroms}Å, flux=${flux}`);
+            
+            return `${wavelengthAngstroms},${flux}`;
+          }).join(' ');
+        })
+        .join(' ');
+
+      console.log('Final data points:', dataPoints);
+
+      if (!dataPoints) {
+        throw new Error('No valid data points to generate SED');
+      }
+
+      console.log('Sending data to SED processor...');
+      const response = await processSED({ raw_data: dataPoints });
+      console.log('SED processor response:', response);
+      
+      if (!response?.sed_name) {
+        throw new Error('Invalid response from SED processing service');
+      }
+
+      const imageUrl = `${import.meta.env.VITE_API_URL}/queries/sed/download/${response.sed_name}`;
+      console.log('Generated SED image URL:', imageUrl);
+      setSedImage(imageUrl);
+    } catch (err) {
+      console.error('Error generating SED:', err);
+      setSedError(err.message || 'Failed to generate SED');
+    } finally {
+      setSedLoading(false);
+    }
+  };
+
+  const togglePhotometrySelection = (photometry) => {
+    setSelectedPhotometry(prev => {
+      const isSelected = prev.some(p => p.phot_id === photometry.phot_id);
+      if (isSelected) {
+        return prev.filter(p => p.phot_id !== photometry.phot_id);
+      } else {
+        return [...prev, photometry];
+      }
+    });
+  };
+
+  const handleDownloadSed = async () => {
+    if (sedImage) {
+      try {
+        await downloadSED(sedImage);
+      } catch (err) {
+        setSedError(err.message || 'Failed to download SED');
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-4 rounded-lg shadow">
@@ -313,37 +478,99 @@ export default function QuerySearch() {
 
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead>
+              <thead className="bg-gray-50">
                 <tr>
-                  {getVisibleColumns().map(column => renderColumnHeader(column))}
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Select
+                  </th>
+                  {getVisibleColumns().map(column => (
+                    <th key={column} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {renderColumnHeader(column)}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
-                {results.map((row, rowIndex) => (
-                  <tr key={rowIndex} className="hover:bg-gray-50">
-                    {getVisibleColumns().map(column => (
-                      <td key={column} className="px-4 py-2">
-                        {row[column] !== undefined && row[column] !== null ? row[column].toString() : ''}
+              <tbody className="bg-white divide-y divide-gray-200">
+                {results.map((result, index) => {
+                  const isSelected = selectedRows.some(r => r.agn_id === result.agn_id);
+                  return (
+                    <tr 
+                      key={index} 
+                      className={`hover:bg-gray-50 cursor-pointer transition-colors duration-150 ${
+                        isSelected ? 'bg-blue-50 hover:bg-blue-100' : ''
+                      }`}
+                      onClick={(e) => handleRowSelection(result, e)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleCheckboxChange(result)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                          onClick={(e) => e.stopPropagation()}
+                        />
                       </td>
-                    ))}
-                  </tr>
-                ))}
+                      {getVisibleColumns().map(column => (
+                        <td key={column} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {result[column]}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-
-          <div className="p-4 border-t flex justify-between items-center">
-            <div>Showing {pagination.skip + 1} to {Math.min(pagination.skip + results.length, pagination.total)} of {pagination.total} results</div>
-            <div className="flex items-center space-x-2">
-              <button onClick={goToFirstPage} disabled={getCurrentPage() === 1} className={`px-3 py-1 rounded ${getCurrentPage() === 1 ? 'bg-gray-100 text-gray-400' : 'bg-blue-100 text-blue-800 hover:bg-blue-200'}`}>First</button>
-              <button onClick={goToPreviousPage} disabled={getCurrentPage() === 1} className={`px-3 py-1 rounded ${getCurrentPage() === 1 ? 'bg-gray-100 text-gray-400' : 'bg-blue-100 text-blue-800 hover:bg-blue-200'}`}>Previous</button>
-              <span className="px-3 py-1 mx-1 text-sm">Page {getCurrentPage()} of {getTotalPages()}</span>
-              <button onClick={goToNextPage} disabled={getCurrentPage() >= getTotalPages()} className={`px-3 py-1 rounded ${getCurrentPage() >= getTotalPages() ? 'bg-gray-100 text-gray-400' : 'bg-blue-100 text-blue-800 hover:bg-blue-200'}`}>Next</button>
-              <button onClick={goToLastPage} disabled={getCurrentPage() >= getTotalPages()} className={`px-3 py-1 rounded ${getCurrentPage() >= getTotalPages() ? 'bg-gray-100 text-gray-400' : 'bg-blue-100 text-blue-800 hover:bg-blue-200'}`}>Last</button>
-            </div>
-          </div>
         </div>
       )}
+
+      <div className="bg-white p-4 rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">SED Analysis</h2>
+        <div className="space-y-4">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={handleGenerateSed}
+              disabled={selectedRows.length === 0 || sedLoading}
+              className={`px-4 py-2 rounded ${
+                selectedRows.length === 0 || sedLoading
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+            >
+              {sedLoading ? 'Generating SED...' : 'Generate SED'}
+            </button>
+            {selectedRows.length > 0 && (
+              <span className="text-sm text-gray-600">
+                {selectedRows.length} source{selectedRows.length > 1 ? 's' : ''} selected
+              </span>
+            )}
+          </div>
+
+          {sedError && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+              {sedError}
+            </div>
+          )}
+
+          {sedImage && (
+            <div className="mt-4">
+              <img 
+                src={sedImage} 
+                alt="SED Plot" 
+                className="max-w-full h-auto border rounded"
+              />
+              <div className="mt-2 flex justify-end">
+                <button
+                  onClick={() => downloadSED(sedImage)}
+                  className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200"
+                >
+                  Download SED
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       <ExportDialog
         isOpen={showExportDialog}

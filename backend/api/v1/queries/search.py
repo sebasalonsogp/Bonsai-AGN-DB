@@ -17,7 +17,7 @@ from repositories.search_repository import SearchRepository
 from services.export_service import ExportService
 
 # Create router for search queries
-router = APIRouter(prefix="/search", tags=["Search"])
+router = APIRouter(tags=["Search"])
 
 # Create repository instance
 search_repo = SearchRepository()
