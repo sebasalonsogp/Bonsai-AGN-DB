@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Response
 from schemas.sed import SEDRequest, SEDResponse
 from services.sed_service import SEDService
+from loguru import logger
 
 router = APIRouter(prefix="/sed", tags=["sed"])
 
@@ -8,14 +9,17 @@ router = APIRouter(prefix="/sed", tags=["sed"])
 async def process_sed(request: SEDRequest) -> SEDResponse:
     """Process SED data and generate visualization."""
     try:
+        logger.info(f"Received SED processing request with data: {request.raw_data[:100]}...")  # Log first 100 chars of data
         sed_service = SEDService()
         sed_name, _ = await sed_service.process_sed(request.raw_data)
+        logger.info(f"SED processed successfully, generated file: {sed_name}")
         return SEDResponse(
             sed_name=sed_name,
             status="success",
             message="SED processed successfully"
         )
     except Exception as e:
+        logger.error(f"Error processing SED: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/download/{sed_name}")
