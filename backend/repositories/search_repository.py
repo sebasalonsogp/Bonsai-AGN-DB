@@ -56,8 +56,10 @@ class SearchRepository:
             count_stmt = select(func.count()).select_from(stmt.subquery())
             total = await db.scalar(count_stmt)
             
-            # Apply sorting if a sort field is provided
-            if sort_field:
+            # Apply sorting - default to agn_id if no sort field provided
+            if not sort_field or sort_field == "null":
+                stmt = stmt.order_by(SourceAGN.agn_id.asc())
+            else:
                 stmt = self._apply_sorting(stmt, sort_field, sort_direction)
             
             # Apply pagination
@@ -136,7 +138,7 @@ class SearchRepository:
         Returns:
             SQLAlchemy select statement with all necessary joins
         """
-        # Start with source table
+        # Start with source table and select all columns
         query = (
             select(
                 SourceAGN, 

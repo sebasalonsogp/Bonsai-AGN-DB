@@ -371,7 +371,7 @@ export default function QuerySearch() {
         throw new Error('Invalid response from SED processing service');
       }
 
-      const imageUrl = `${import.meta.env.VITE_API_URL}/queries/sed/download/${response.sed_name}`;
+      const imageUrl = `${import.meta.env.VITE_API_URL}/queries/sed/sed/download/${response.sed_name}`;
       console.log('Generated SED image URL:', imageUrl);
       setSedImage(imageUrl);
     } catch (err) {
@@ -393,13 +393,22 @@ export default function QuerySearch() {
     });
   };
 
-  const handleDownloadSed = async () => {
-    if (sedImage) {
-      try {
-        await downloadSED(sedImage);
-      } catch (err) {
-        setSedError(err.message || 'Failed to download SED');
-      }
+  const handleDownloadSed = async (imageUrl) => {
+    try {
+      const sedName = imageUrl.split('/').pop();
+      const response = await downloadSED(sedName);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sed_${sedName}.png`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading SED:', error);
+      setSedError('Failed to download SED image');
     }
   };
 
@@ -561,7 +570,7 @@ export default function QuerySearch() {
               />
               <div className="mt-2 flex justify-end">
                 <button
-                  onClick={() => downloadSED(sedImage)}
+                  onClick={() => handleDownloadSed(sedImage)}
                   className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200"
                 >
                   Download SED
