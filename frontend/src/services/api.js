@@ -427,12 +427,24 @@ export const processSED = async (data) => {
 };
 
 export const downloadSED = async (sed_name) => {
+  console.log(`[API] Attempting to download SED with name: ${sed_name}`);
+  console.log(`[API] Using endpoint: ${import.meta.env.VITE_API_URL}/queries/sed/sed/download/${sed_name}`);
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/queries/sed/sed/download/${sed_name}`);
-    const blob = await response.blob();
-    downloadBlob(blob, `${sed_name}.png`);
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/queries/sed/sed/download/${sed_name}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    console.log(`[API] Download response status: ${response.status}`);
+    console.log(`[API] Download response headers:`, Object.fromEntries(response.headers.entries()));
+    if (!response.ok) {
+      console.error(`[API] Download failed with status: ${response.status}`);
+      throw new Error(`Failed to download SED: ${response.statusText}`);
+    }
+    return response;
   } catch (error) {
-    console.error('SED download failed:', error);
+    console.error(`[API] Error downloading SED:`, error);
     throw error;
   }
 };
