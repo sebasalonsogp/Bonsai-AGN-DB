@@ -4,7 +4,15 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gcc build-essential libmariadb-dev \
+    && apt-get install -y --no-install-recommends \
+        gcc \
+        build-essential \
+        libmariadb-dev \
+        python3-dev \
+        libfreetype6-dev \
+        libpng-dev \
+        libjpeg-dev \
+        zlib1g-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
