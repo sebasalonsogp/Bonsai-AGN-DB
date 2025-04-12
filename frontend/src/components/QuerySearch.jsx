@@ -30,6 +30,10 @@ export default function QuerySearch() {
   const [showSedModal, setShowSedModal] = useState(false);
   const [selectedPhotometry, setSelectedPhotometry] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
+  const [sedInputMode, setSedInputMode] = useState('query');
+  const [manualSourceName, setManualSourceName] = useState('');
+  const [manualRedshift, setManualRedshift] = useState('');
+  const [manualDataPoints, setManualDataPoints] = useState([]);
 
   const fields = [
     { name: 'agn_id', label: 'AGN ID', inputType: 'number' },
@@ -246,6 +250,16 @@ export default function QuerySearch() {
     setError({ message: 'Search cancelled by user' });
   };
 
+  const handleClear = () => {
+    setResults([]);
+    setSelectedRows([]);
+    setError(null);
+    setLastExecutedQuery(null);
+    setSedImage(null);
+    setSedError(null);
+    setPagination({ ...pagination, skip: 0, total: 0 });
+  };
+
   const handleSedAnalysis = async (source) => {
     setSelectedSource(source);
     setShowSedModal(true);
@@ -412,13 +426,47 @@ export default function QuerySearch() {
     }
   };
 
+  const handleGenerateManualSed = async () => {
+    if (manualDataPoints.length === 0 || !manualSourceName) {
+      setSedError('Please provide both source name and data points');
+      return;
+    }
+
+    setSedLoading(true);
+    setSedError(null);
+
+    try {
+      console.log('Starting manual SED generation');
+      
+      // Convert manual data points to the required format
+      const dataPoints = manualDataPoints.map(point => `${point.wavelength},${point.flux},${point.error}`).join(' ');
+
+      console.log('Sending data to SED processor...');
+      const response = await processSED({ raw_data: dataPoints });
+      console.log('SED processor response:', response);
+      
+      if (!response?.sed_name) {
+        throw new Error('Invalid response from SED processing service');
+      }
+
+      const imageUrl = `${import.meta.env.VITE_API_URL}/queries/sed/sed/download/${response.sed_name}`;
+      console.log('Generated SED image URL:', imageUrl);
+      setSedImage(imageUrl);
+    } catch (err) {
+      console.error('Error generating manual SED:', err);
+      setSedError(err.message || 'Failed to generate manual SED');
+    } finally {
+      setSedLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-4 rounded-lg shadow">
         <h2 className="text-xl font-bold mb-4">Query Builder</h2>
         <form onSubmit={handleSubmit}>
           <QueryBuilder fields={fields} query={query} onQueryChange={setQuery} controlClassnames={{ queryBuilder: 'border p-4' }} />
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex justify-end space-x-2">
             {loading ? (
               <div className="flex space-x-3">
                 <button type="button" onClick={handleCancelSearch} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Cancel</button>
@@ -428,7 +476,18 @@ export default function QuerySearch() {
                 </div>
               </div>
             ) : (
-              <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Execute Query</button>
+              <div className="flex space-x-2">
+                {results.length > 0 && (
+                  <button 
+                    type="button" 
+                    onClick={handleClear} 
+                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                  >
+                    Clear Results
+                  </button>
+                )}
+                <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Execute Query</button>
+              </div>
             )}
           </div>
         </form>
@@ -635,52 +694,177 @@ export default function QuerySearch() {
         </div>
       )}
 
-      <div className="bg-white p-4 rounded-lg shadow">
-        <h2 className="text-xl font-bold mb-4">SED Analysis</h2>
-        <div className="space-y-4">
-          <div className="flex items-center space-x-4">
+      {/* SED Analysis Section */}
+      <div className="mt-8 bg-white shadow rounded-lg p-6">
+        <h2 className="text-xl font-semibold mb-4">SED Analysis</h2>
+        
+        <div className="mb-4">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setSedInputMode('query')}
+                className={`${
+                  sedInputMode === 'query'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Query Results
+              </button>
+              <button
+                onClick={() => setSedInputMode('manual')}
+                className={`${
+                  sedInputMode === 'manual'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Manual Input
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        {sedInputMode === 'query' ? (
+          <div>
+            <div className="mb-4">
+              <span className="text-sm text-gray-600">
+                {selectedRows.length} source{selectedRows.length !== 1 ? 's' : ''} selected
+              </span>
+            </div>
             <button
               onClick={handleGenerateSed}
-              disabled={selectedRows.length === 0 || sedLoading}
+              disabled={selectedRows.length === 0}
               className={`px-4 py-2 rounded ${
-                selectedRows.length === 0 || sedLoading
+                selectedRows.length === 0
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-blue-600 text-white hover:bg-blue-700'
               }`}
             >
-              {sedLoading ? 'Generating SED...' : 'Generate SED'}
+              Generate SED
             </button>
-            {selectedRows.length > 0 && (
-              <span className="text-sm text-gray-600">
-                {selectedRows.length} source{selectedRows.length > 1 ? 's' : ''} selected
-              </span>
-            )}
           </div>
-
-          {sedError && (
-            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
-              {sedError}
-            </div>
-          )}
-
-          {sedImage && (
-            <div className="mt-4">
-              <img 
-                src={sedImage} 
-                alt="SED Plot" 
-                className="max-w-full h-auto border rounded"
-              />
-              <div className="mt-2 flex justify-end">
-                <button
-                  onClick={() => handleDownloadSed(sedImage)}
-                  className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200"
-                >
-                  Download SED
-                </button>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="flex flex-col space-y-2">
+                <label className="text-sm font-medium text-gray-700">Source Name</label>
+                <input
+                  type="text"
+                  value={manualSourceName}
+                  onChange={(e) => setManualSourceName(e.target.value)}
+                  placeholder="Enter source name"
+                  className="border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex flex-col space-y-2">
+                <label className="text-sm font-medium text-gray-700">Redshift (z)</label>
+                <input
+                  type="number"
+                  value={manualRedshift}
+                  onChange={(e) => setManualRedshift(e.target.value)}
+                  placeholder="Enter redshift value"
+                  className="border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
             </div>
-          )}
-        </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-medium">Data Points</h3>
+                <button
+                  onClick={() => setManualDataPoints([...manualDataPoints, { wavelength: '', flux: '', error: '' }])}
+                  className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 text-sm"
+                >
+                  Add Point
+                </button>
+              </div>
+              
+              <div className="space-y-2">
+                {manualDataPoints.map((point, index) => (
+                  <div key={index} className="grid grid-cols-3 gap-4 items-center">
+                    <div>
+                      <label className="text-sm text-gray-600">Wavelength (Å)</label>
+                      <input
+                        type="number"
+                        value={point.wavelength}
+                        onChange={(e) => {
+                          const newPoints = [...manualDataPoints];
+                          newPoints[index].wavelength = e.target.value;
+                          setManualDataPoints(newPoints);
+                        }}
+                        className="border rounded-md px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-600">Flux (erg/s/cm²/Å)</label>
+                      <input
+                        type="number"
+                        value={point.flux}
+                        onChange={(e) => {
+                          const newPoints = [...manualDataPoints];
+                          newPoints[index].flux = e.target.value;
+                          setManualDataPoints(newPoints);
+                        }}
+                        className="border rounded-md px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-600">Error</label>
+                      <div className="flex space-x-2">
+                        <input
+                          type="number"
+                          value={point.error}
+                          onChange={(e) => {
+                            const newPoints = [...manualDataPoints];
+                            newPoints[index].error = e.target.value;
+                            setManualDataPoints(newPoints);
+                          }}
+                          className="border rounded-md px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          onClick={() => {
+                            const newPoints = manualDataPoints.filter((_, i) => i !== index);
+                            setManualDataPoints(newPoints);
+                          }}
+                          className="px-2 py-2 text-red-600 hover:text-red-800"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={handleGenerateManualSed}
+              disabled={manualDataPoints.length === 0 || !manualSourceName}
+              className={`px-4 py-2 rounded ${
+                manualDataPoints.length === 0 || !manualSourceName
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+            >
+              Generate SED
+            </button>
+          </div>
+        )}
+
+        {sedImage && (
+          <div className="mt-6">
+            <img src={sedImage} alt="SED Plot" className="max-w-full" />
+            <div className="mt-4">
+              <button
+                onClick={handleDownloadSed}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Download SED
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <ExportDialog
