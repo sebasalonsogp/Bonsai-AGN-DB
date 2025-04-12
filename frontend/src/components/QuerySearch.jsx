@@ -37,6 +37,7 @@ export default function QuerySearch() {
   const [showQueryModal, setShowQueryModal] = useState(false);
   const [pendingQuery, setPendingQuery] = useState(null);
   const [hasExecutedQuery, setHasExecutedQuery] = useState(false);
+  const queryBuilderRef = useRef(null);
 
   const fields = [
     { name: 'agn_id', label: 'AGN ID', inputType: 'number' },
@@ -334,7 +335,22 @@ export default function QuerySearch() {
     setSedImage(null);
     setSedError(null);
     setPagination({ skip: 0, limit: 20, total: 0 });
-    setQuery({ combinator: 'and', rules: [] });
+    
+    // Reset the query builder to its initial state
+    setQuery({ 
+      combinator: 'and', 
+      rules: [] 
+    });
+    
+    // Reset any form fields or selections
+    if (queryBuilderRef.current) {
+      // Reset the query builder component
+      queryBuilderRef.current.setQuery({ 
+        combinator: 'and', 
+        rules: [] 
+      });
+    }
+    
     // Set hasExecutedQuery last to ensure other states are reset first
     setHasExecutedQuery(false);
   };
@@ -575,7 +591,7 @@ export default function QuerySearch() {
       <div className="bg-white p-4 rounded-lg shadow">
         <h2 className="text-xl font-bold mb-4">Query Builder</h2>
         <form onSubmit={handleSubmit}>
-          <QueryBuilder fields={fields} query={query} onQueryChange={setQuery} controlClassnames={{ queryBuilder: 'border p-4' }} />
+          <QueryBuilder fields={fields} query={query} onQueryChange={setQuery} controlClassnames={{ queryBuilder: 'border p-4' }} ref={queryBuilderRef} />
           <div className="mt-4 flex justify-end space-x-2">
             {loading ? (
               <div className="flex space-x-3">
