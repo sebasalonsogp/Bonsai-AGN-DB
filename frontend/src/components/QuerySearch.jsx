@@ -109,6 +109,12 @@ export default function QuerySearch() {
       setSortField(field);
       setSortDirection('asc');
     }
+    // Reset to first page when changing sort
+    setPagination(prev => ({ ...prev, skip: 0 }));
+    // Execute search with new sort parameters
+    if (lastExecutedQuery) {
+      executeSearch();
+    }
   };
 
   const getSortIndicator = (field) => {
@@ -116,49 +122,20 @@ export default function QuerySearch() {
     return sortDirection === 'asc' ? '↑' : '↓';
   };
 
-  const getSortedResults = () => {
-    if (!sortField) return results;
-    
-    return [...results].sort((a, b) => {
-      const aValue = a[sortField];
-      const bValue = b[sortField];
-      
-      // Handle null/undefined values
-      if (aValue == null) return sortDirection === 'asc' ? -1 : 1;
-      if (bValue == null) return sortDirection === 'asc' ? 1 : -1;
-      
-      // Handle numeric values (including strings that can be converted to numbers)
-      const aNum = Number(aValue);
-      const bNum = Number(bValue);
-      if (!isNaN(aNum) && !isNaN(bNum)) {
-        return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
-      }
-      
-      // Handle string values with case-insensitive comparison
-      const aStr = String(aValue).toLowerCase();
-      const bStr = String(bValue).toLowerCase();
-      const comparison = aStr.localeCompare(bStr);
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
-  };
-
   const executeSearch = async () => {
     try {
       setLoading(true);
       setError(null);
-      // Reset sorting when executing a new search
-      setSortField(null);
-      setSortDirection('asc');
       
       const response = await searchApi.executeQuery(query, {
-        skip: pagination.skip,
-        limit: pagination.limit
+        sort_field: sortField,
+        sort_direction: sortDirection
       });
       
       setResults(response.items);
       setPagination(prev => ({
         ...prev,
-        total: response.total
+        total: response.items.length
       }));
     } catch (err) {
       console.error('Search error:', err);
@@ -270,6 +247,12 @@ export default function QuerySearch() {
     if (newSkip !== pagination.skip) {
       setPagination({ ...pagination, skip: newSkip });
     }
+  };
+
+  const getPaginatedResults = () => {
+    const start = pagination.skip;
+    const end = start + pagination.limit;
+    return results.slice(start, end);
   };
 
   const goToPage = (pageNum) => handlePageChange(pageNum - 1);
@@ -729,7 +712,7 @@ export default function QuerySearch() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {getSortedResults().map((result, index) => {
+                {getPaginatedResults().map((result, index) => {
                   const isSelected = selectedRows.some(r => r.agn_id === result.agn_id);
                   return (
                     <tr 
