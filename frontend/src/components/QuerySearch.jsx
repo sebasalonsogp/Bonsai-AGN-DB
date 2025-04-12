@@ -107,9 +107,7 @@ export default function QuerySearch() {
       
       const response = await searchApi.executeQuery(query, {
         skip: pagination.skip,
-        limit: pagination.limit,
-        sort_field: pagination.sort_field,
-        sort_direction: pagination.sort_direction
+        limit: pagination.limit
       });
       
       setResults(response.items);
@@ -123,6 +121,38 @@ export default function QuerySearch() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getSortedResults = () => {
+    if (!pagination.sort_field) return results;
+    
+    return [...results].sort((a, b) => {
+      const aValue = a[pagination.sort_field];
+      const bValue = b[pagination.sort_field];
+      
+      // Handle null/undefined values
+      if (aValue == null) return pagination.sort_direction === 'asc' ? -1 : 1;
+      if (bValue == null) return pagination.sort_direction === 'asc' ? 1 : -1;
+      
+      // Handle numeric values (including strings that can be converted to numbers)
+      const aNum = Number(aValue);
+      const bNum = Number(bValue);
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return pagination.sort_direction === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      
+      // Handle string values with case-insensitive comparison
+      const aStr = String(aValue).toLowerCase();
+      const bStr = String(bValue).toLowerCase();
+      const comparison = aStr.localeCompare(bStr);
+      return pagination.sort_direction === 'asc' ? comparison : -comparison;
+    });
+  };
+
+  const getPaginatedResults = () => {
+    const start = pagination.skip;
+    const end = start + pagination.limit;
+    return getSortedResults().slice(start, end);
   };
 
   const handleSubmit = (e) => {
@@ -249,15 +279,24 @@ export default function QuerySearch() {
 
   const handleSort = (field) => {
     if (pagination.sort_field === field) {
-      setPagination({ ...pagination, sort_direction: pagination.sort_direction === 'asc' ? 'desc' : 'asc' });
+      // Toggle direction if clicking the same field
+      setPagination(prev => ({
+        ...prev,
+        sort_direction: prev.sort_direction === 'asc' ? 'desc' : 'asc'
+      }));
     } else {
-      setPagination({ ...pagination, sort_field: field, sort_direction: 'asc' });
+      // Set new field and default to ascending
+      setPagination(prev => ({
+        ...prev,
+        sort_field: field,
+        sort_direction: 'asc'
+      }));
     }
   };
 
   const getSortIndicator = (field) => {
     if (pagination.sort_field === field) {
-      return pagination.sort_direction === 'asc' ? ' ↑' : ' ↓';
+      return pagination.sort_direction === 'asc' ? '↑' : '↓';
     }
     return '';
   };
