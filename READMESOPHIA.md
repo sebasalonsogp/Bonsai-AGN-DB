@@ -1,5 +1,6 @@
 ### implement other cigale features...
 ### sort results by...
+### add a view previous queries feature
 ### fix select feature... select unique instead of by agn_id
 ### view selected values (be able to click and see what is selected on sed in pop up)
 ### if new query is started while old one exits/ not cleared:

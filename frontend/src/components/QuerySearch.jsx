@@ -38,6 +38,8 @@ export default function QuerySearch() {
   const [pendingQuery, setPendingQuery] = useState(null);
   const [hasExecutedQuery, setHasExecutedQuery] = useState(false);
   const queryBuilderRef = useRef(null);
+  const [sortField, setSortField] = useState(null);
+  const [sortDirection, setSortDirection] = useState('asc');
 
   const fields = [
     { name: 'agn_id', label: 'AGN ID', inputType: 'number' },
@@ -100,16 +102,57 @@ export default function QuerySearch() {
 
   const [lastExecutedQuery, setLastExecutedQuery] = useState(null);
 
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIndicator = (field) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? '↑' : '↓';
+  };
+
+  const getSortedResults = () => {
+    if (!sortField) return results;
+    
+    return [...results].sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      
+      // Handle null/undefined values
+      if (aValue == null) return sortDirection === 'asc' ? -1 : 1;
+      if (bValue == null) return sortDirection === 'asc' ? 1 : -1;
+      
+      // Handle numeric values (including strings that can be converted to numbers)
+      const aNum = Number(aValue);
+      const bNum = Number(bValue);
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      
+      // Handle string values with case-insensitive comparison
+      const aStr = String(aValue).toLowerCase();
+      const bStr = String(bValue).toLowerCase();
+      const comparison = aStr.localeCompare(bStr);
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  };
+
   const executeSearch = async () => {
     try {
       setLoading(true);
       setError(null);
+      // Reset sorting when executing a new search
+      setSortField(null);
+      setSortDirection('asc');
       
       const response = await searchApi.executeQuery(query, {
         skip: pagination.skip,
-        limit: pagination.limit,
-        sort_field: pagination.sort_field,
-        sort_direction: pagination.sort_direction
+        limit: pagination.limit
       });
       
       setResults(response.items);
@@ -247,46 +290,6 @@ export default function QuerySearch() {
     setVisibleColumns(newVisibility);
   };
 
-  const handleSort = (field) => {
-    if (pagination.sort_field === field) {
-      setPagination({ ...pagination, sort_direction: pagination.sort_direction === 'asc' ? 'desc' : 'asc' });
-    } else {
-      setPagination({ ...pagination, sort_field: field, sort_direction: 'asc' });
-    }
-  };
-
-  const getSortIndicator = (field) => {
-    if (pagination.sort_field === field) {
-      return pagination.sort_direction === 'asc' ? ' ↑' : ' ↓';
-    }
-    return '';
-  };
-
-  useEffect(() => {
-    if (lastExecutedQuery !== null) {
-      const paginationSearch = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-          const searchParams = { skip: pagination.skip, limit: pagination.limit, sort_field: pagination.sort_field, sort_direction: pagination.sort_direction };
-          const response = await searchApi.executeQuery(lastExecutedQuery, searchParams);
-          if (response && response.items) {
-            setResults(response.items);
-            setPagination({ ...pagination, total: response.total || 0 });
-          } else {
-            setResults([]);
-          }
-        } catch (err) {
-          console.error('Pagination search failed:', err);
-          setError(err.message || 'Failed to paginate results');
-        } finally {
-          setLoading(false);
-        }
-      };
-      paginationSearch();
-    }
-  }, [pagination.skip, pagination.limit, pagination.sort_field, pagination.sort_direction, lastExecutedQuery]);
-
   const getVisibleColumns = () => {
     if (!columnOrder || columnOrder.length === 0) return [];
     const visible = columnOrder.filter(column => visibleColumns[column] === true);
@@ -304,12 +307,17 @@ export default function QuerySearch() {
   const renderColumnHeader = (column) => {
     const label = fieldLabels[column] || column;
     return (
-      <th
+      <th 
         key={column}
-        className="px-4 py-2 bg-gray-200 cursor-pointer hover:bg-gray-300"
+        className="px-4 py-2 text-left cursor-pointer hover:bg-gray-100"
         onClick={() => handleSort(column)}
       >
-        {label}{getSortIndicator(column)}
+        <div className="flex items-center">
+          {label}
+          {getSortIndicator(column) && (
+            <span className="ml-1">{getSortIndicator(column)}</span>
+          )}
+        </div>
       </th>
     );
   };
@@ -721,7 +729,7 @@ export default function QuerySearch() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {results.map((result, index) => {
+                {getSortedResults().map((result, index) => {
                   const isSelected = selectedRows.some(r => r.agn_id === result.agn_id);
                   return (
                     <tr 
@@ -997,8 +1005,8 @@ export default function QuerySearch() {
         isOpen={showExportDialog}
         query={lastExecutedQuery}
         onClose={() => setShowExportDialog(false)}
-        sortField={pagination.sort_field}
-        sortDirection={pagination.sort_direction}
+        sortField={sortField}
+        sortDirection={sortDirection}
         visibleColumns={visibleColumns}
       />
     </div>
