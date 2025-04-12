@@ -34,6 +34,9 @@ export default function QuerySearch() {
   const [manualSourceName, setManualSourceName] = useState('');
   const [manualRedshift, setManualRedshift] = useState('');
   const [manualDataPoints, setManualDataPoints] = useState([]);
+  const [showQueryModal, setShowQueryModal] = useState(false);
+  const [pendingQuery, setPendingQuery] = useState(null);
+  const [hasExecutedQuery, setHasExecutedQuery] = useState(false);
 
   const fields = [
     { name: 'agn_id', label: 'AGN ID', inputType: 'number' },
@@ -97,48 +100,119 @@ export default function QuerySearch() {
   const [lastExecutedQuery, setLastExecutedQuery] = useState(null);
 
   const executeSearch = async () => {
-    setLoading(true);
-    setError(null);
-    setQueryRuntime(0);
-    setQueryTakingTooLong(false);
-
-    const startTime = Date.now();
-    runtimeInterval.current = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      setQueryRuntime(elapsed);
-      if (elapsed > LONG_QUERY_THRESHOLD && !queryTakingTooLong) {
-        setQueryTakingTooLong(true);
-      }
-    }, 1000);
-
     try {
-      const searchParams = { skip: pagination.skip, limit: pagination.limit, sort_field: pagination.sort_field, sort_direction: pagination.sort_direction };
-      setLastExecutedQuery(query);
-      if (searchRequestRef.current) searchRequestRef.current.cancel();
-      const { promise, cancel } = searchApi.executeQueryWithCancellation(query, searchParams, { timeout: 120000 });
-      searchRequestRef.current = { cancel };
-      const response = await promise;
-      if (response && response.items) {
-        setResults(response.items);
-        setPagination({ ...pagination, total: response.total || 0 });
-      } else {
-        setResults([]);
-      }
+      setLoading(true);
+      setError(null);
+      
+      const response = await searchApi.executeQuery(query, {
+        skip: pagination.skip,
+        limit: pagination.limit,
+        sort_field: pagination.sort_field,
+        sort_direction: pagination.sort_direction
+      });
+      
+      setResults(response.items);
+      setPagination(prev => ({
+        ...prev,
+        total: response.total
+      }));
     } catch (err) {
-      console.error('Search failed:', err);
-      setError(err);
-      setResults([]);
+      console.error('Search error:', err);
+      setError(err.message || 'An error occurred during the search');
     } finally {
-      clearInterval(runtimeInterval.current);
       setLoading(false);
-      setQueryTakingTooLong(false);
-      searchRequestRef.current = null;
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    console.log('handleSubmit - Current state:', {
+      hasExecutedQuery,
+      resultsLength: results.length,
+      currentQuery: query
+    });
+    
+    // If a query has been executed before and there are results, show the modal
+    if (hasExecutedQuery && results.length > 0) {
+      console.log('Showing modal - hasExecutedQuery:', hasExecutedQuery, 'results.length:', results.length);
+      setPendingQuery(query);
+      setShowQueryModal(true);
+      return;
+    }
+    
+    // If no previous query or no results, execute immediately
+    console.log('Executing query immediately - hasExecutedQuery:', hasExecutedQuery);
+    setLastExecutedQuery(query);
+    setHasExecutedQuery(true);
     executeSearch();
+  };
+
+  const handleCombineQueries = () => {
+    console.log('handleCombineQueries - Current state:', {
+      hasExecutedQuery,
+      lastExecutedQuery,
+      pendingQuery,
+      resultsLength: results.length
+    });
+    
+    // Create a new combined query with proper structure
+    const combinedQuery = {
+      combinator: 'or',
+      rules: [
+        // First query's rules
+        ...lastExecutedQuery.rules.map(rule => ({
+          ...rule,
+          valueSource: 'value'
+        })),
+        // Second query's rules
+        ...pendingQuery.rules.map(rule => ({
+          ...rule,
+          valueSource: 'value'
+        }))
+      ]
+    };
+    
+    console.log('Combined Query Structure:', combinedQuery);
+    
+    // Clear the current results before executing the combined query
+    setResults([]);
+    setQuery(combinedQuery);
+    setLastExecutedQuery(combinedQuery);
+    setPendingQuery(null);
+    setShowQueryModal(false);
+    setHasExecutedQuery(true);
+    executeSearch();
+  };
+
+  const handleNewQuery = () => {
+    console.log('handleNewQuery - Current state:', {
+      hasExecutedQuery,
+      pendingQuery
+    });
+    
+    // Clear everything first
+    handleClear();
+    
+    // Use setTimeout to ensure state is reset before executing new query
+    setTimeout(() => {
+      setQuery(pendingQuery);
+      setLastExecutedQuery(pendingQuery);
+      setPendingQuery(null);
+      setShowQueryModal(false);
+      setHasExecutedQuery(true);
+      executeSearch();
+    }, 0);
+  };
+
+  const handleCancelModal = () => {
+    console.log('handleCancelModal - Current state:', {
+      hasExecutedQuery,
+      pendingQuery
+    });
+    
+    setPendingQuery(null);
+    setShowQueryModal(false);
   };
 
   const getCurrentPage = () => Math.floor(pagination.skip / pagination.limit) + 1;
@@ -251,13 +325,18 @@ export default function QuerySearch() {
   };
 
   const handleClear = () => {
+    console.log('handleClear - Resetting state');
+    // Reset all state in a specific order
     setResults([]);
     setSelectedRows([]);
     setError(null);
     setLastExecutedQuery(null);
     setSedImage(null);
     setSedError(null);
-    setPagination({ ...pagination, skip: 0, total: 0 });
+    setPagination({ skip: 0, limit: 20, total: 0 });
+    setQuery({ combinator: 'and', rules: [] });
+    // Set hasExecutedQuery last to ensure other states are reset first
+    setHasExecutedQuery(false);
   };
 
   const handleSedAnalysis = async (source) => {
@@ -462,6 +541,37 @@ export default function QuerySearch() {
 
   return (
     <div className="space-y-6">
+      {showQueryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4">Existing Query Results</h3>
+            <p className="text-gray-600 mb-6">
+              You have existing query results. Would you like to:
+            </p>
+            <div className="flex flex-col space-y-3">
+              <button
+                onClick={handleNewQuery}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              >
+                Clear and Execute New Query
+              </button>
+              <button
+                onClick={handleCombineQueries}
+                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+              >
+                Combine with Existing Query
+              </button>
+              <button
+                onClick={handleCancelModal}
+                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white p-4 rounded-lg shadow">
         <h2 className="text-xl font-bold mb-4">Query Builder</h2>
         <form onSubmit={handleSubmit}>
