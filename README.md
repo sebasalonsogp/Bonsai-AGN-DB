@@ -42,8 +42,8 @@
     - [State Management](#state-management)
     - [Routing](#routing)
     - [Query Builder](#query-builder)
-  - [Database Schema](#database-schema)
-    - [Entity Relationship Diagram](#entity-relationship-diagram)
+  - [Database Schema (W.I.P)](#database-schema-wip)
+    - [Entity Relationship Diagram (W.I.P)](#entity-relationship-diagram-wip)
     - [Table Descriptions](#table-descriptions)
       - [source\_agn](#source_agn)
       - [photometry](#photometry)
@@ -717,7 +717,7 @@ docker-compose exec backend pytest --cov=app
    - Check browser console for JavaScript errors
 
 
-4. ### Database Tables Not Created
+4.  **Database Tables Not Created**
 If you encounter an error like "Table 'agndb.source_agn' doesn't exist", the database initialization scripts did not run properly. Fix this by:
 
    1. Stop all containers:
