@@ -24,9 +24,9 @@ export default function Navbar() {
                 <div className="hidden md:block">
                     <div className="ml-10 flex items-baseline space-x-4">
                         <NavButton name="Home" route="/" />
-                        <NavButton name="Search" route="search" />
-                        <NavButton name="People" route="people" />
-                        <NavButton name="Information" route='information' />
+                        <NavButton name="Search" route="/search" />
+                        <NavButton name="People" route="/people" />
+                        <NavButton name="Information" route='/information' />
                     </div>
                 </div>
                 <div className="md:hidden">
