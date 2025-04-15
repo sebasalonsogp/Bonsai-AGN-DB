@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { NavLink, Link } from 'react-router-dom';
 import NavButton from './NavButton';
 import Navbar from './Navbar';
@@ -14,11 +14,12 @@ function Footer() {
 }
 
 function Layout() {
+    const location = useLocation();
     return (
         <div className="min-h-screen flex flex-col">
             <Navbar/>
             <main className="flex-1 my-4">
-                <Outlet />
+                <Outlet key={location.pathname} />
             </main>
             <Footer />
         </div>

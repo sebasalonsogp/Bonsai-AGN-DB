@@ -6,6 +6,33 @@ import ExportDialog from './ExportDialog';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 
+// Define fields outside the component
+const fields = [
+  { name: 'agn_id', label: 'AGN ID', inputType: 'number' },
+  { name: 'ra', label: 'Right Ascension', inputType: 'number' },
+  { name: 'declination', label: 'Declination', inputType: 'number' },
+  { name: 'band_label', label: 'Band Label' },
+  { name: 'filter_name', label: 'Filter Name' },
+  { name: 'mag_value', label: 'Magnitude Value', inputType: 'number' },
+  { name: 'mag_error', label: 'Magnitude Error', inputType: 'number' },
+  { name: 'extinction', label: 'Extinction', inputType: 'number' },
+  { name: 'redshift_type', label: 'Redshift Type' },
+  { name: 'z_value', label: 'Redshift Value', inputType: 'number' },
+  { name: 'z_error', label: 'Redshift Error', inputType: 'number' },
+  { name: 'spec_class', label: 'Spectroscopic Class' },
+  { name: 'gen_class', label: 'General Class' },
+  { name: 'xray_class', label: 'X-ray Class' },
+  { name: 'best_class', label: 'Best Class' },
+  { name: 'image_class', label: 'Image Class' },
+  { name: 'sed_class', label: 'SED Class' },
+];
+
+// Pre-calculate fieldLabels outside as well
+const fieldLabels = fields.reduce((acc, field) => {
+  acc[field.name] = field.label;
+  return acc;
+}, {});
+
 export default function QuerySearch() {
   const [query, setQuery] = useState({ combinator: 'and', rules: [] });
   const [loading, setLoading] = useState(false);
@@ -23,34 +50,8 @@ export default function QuerySearch() {
   const LONG_QUERY_THRESHOLD = 10000;
   const initialVisibilitySet = useRef(false);
 
-  const fields = [
-    { name: 'agn_id', label: 'AGN ID', inputType: 'number' },
-    { name: 'ra', label: 'Right Ascension', inputType: 'number' },
-    { name: 'declination', label: 'Declination', inputType: 'number' },
-    { name: 'band_label', label: 'Band Label' },
-    { name: 'filter_name', label: 'Filter Name' },
-    { name: 'mag_value', label: 'Magnitude Value', inputType: 'number' },
-    { name: 'mag_error', label: 'Magnitude Error', inputType: 'number' },
-    { name: 'extinction', label: 'Extinction', inputType: 'number' },
-    { name: 'redshift_type', label: 'Redshift Type' },
-    { name: 'z_value', label: 'Redshift Value', inputType: 'number' },
-    { name: 'z_error', label: 'Redshift Error', inputType: 'number' },
-    { name: 'spec_class', label: 'Spectroscopic Class' },
-    { name: 'gen_class', label: 'General Class' },
-    { name: 'xray_class', label: 'X-ray Class' },
-    { name: 'best_class', label: 'Best Class' },
-    { name: 'image_class', label: 'Image Class' },
-    { name: 'sed_class', label: 'SED Class' },
-  ];
-
-  const fieldLabels = fields.reduce((acc, field) => {
-    acc[field.name] = field.label;
-    return acc;
-  }, {});
-
   useEffect(() => {
     const allFieldNames = fields.map(field => field.name);
-
     const orderedColumns = getOrderedColumns(allFieldNames);
     setColumnOrder(orderedColumns);
 
@@ -61,7 +62,6 @@ export default function QuerySearch() {
       });
       setVisibleColumns(initialVisibility);
       initialVisibilitySet.current = true;
-      console.log('Initial column visibility set:', initialVisibility);
     }
   }, [fields]);
 
@@ -237,6 +237,19 @@ export default function QuerySearch() {
     setQueryTakingTooLong(false);
     setError({ message: 'Search cancelled by user' });
   };
+
+  // Add useEffect for cleanup
+  useEffect(() => {
+    return () => {
+      if (runtimeInterval.current) {
+        clearInterval(runtimeInterval.current);
+      }
+      if (searchRequestRef.current && typeof searchRequestRef.current.cancel === 'function') {
+        searchRequestRef.current.cancel();
+        searchRequestRef.current = null; 
+      }
+    };
+  }, []);
 
   return (
     <div className="space-y-6">

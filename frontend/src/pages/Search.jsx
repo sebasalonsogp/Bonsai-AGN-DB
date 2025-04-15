@@ -2,38 +2,48 @@ import { useState } from "react";
 import QuerySearch from "../components/QuerySearch";
 
 function Search() {
-    const [validationText, setValidationText] = useState(""); // Used of keep trak of the string in the textarea
-    const placeholderPass = " "; // Placeholder password and function for validation, should be done in backend for security
-    const placeholderValidate = () => {console.log("validating..."); setAllowed(validationText === placeholderPass); }
-    const [allowed, setAllowed] = useState(false);
+    const [validationText, setValidationText] = useState(""); // Input field state for password
+    // Placeholder password - replace with secure backend authentication
+    const placeholderPass = " "; 
+    const placeholderValidate = () => { 
+        // Basic client-side validation - REMOVE IN PRODUCTION 
+        setAllowed(validationText === placeholderPass); 
+    }
+    const [allowed, setAllowed] = useState(false); // State to track if user is authenticated
 
     return (
         <div>
             {allowed ? 
-            <div className="mx-[10%]">
-                <div>
+                // Render search component if authenticated
+                <div className="mx-[10%]">
                     <QuerySearch/>
                 </div>
-            </div> 
             :
-            <div className="absolute bg-gray-500/50 w-full h-screen pointer-events-none top-0">
-                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto flex flex-row gap-2 items-center drop-shadow-2xl">
-                    <textarea
-                        className="bg-white inline-block p-2 resize-none w-sm"
-                        placeholder="Enter the password to access this page"
-                        value={validationText}
-                        onChange={(e) => setValidationText(e.target.value)}
-                    />
-                    <div className="bg-red-500 text-center h-12 flex items-center p-4 rounded cursor-pointer hover:bg-red-600 text-white" onClick={placeholderValidate}>
-                        Validate
+                // Render password prompt if not authenticated
+                <div className="flex flex-col items-center justify-center pt-10">
+                    <div className="flex flex-col items-center gap-4 p-6 bg-white rounded-lg shadow-md border border-gray-200 w-full max-w-md">
+                         <h2 className="text-lg font-semibold text-gray-700">Enter Password</h2>
+                         <p className="text-sm text-gray-500 mb-4 text-center">Please enter the password to access the search functionality.</p>
+                        <div className="flex flex-row gap-2 items-center">
+                            <textarea
+                                className="bg-gray-50 border border-gray-300 inline-block p-2 resize-none rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Password"
+                                value={validationText}
+                                onChange={(e) => setValidationText(e.target.value)}
+                                rows={1}
+                            />
+                            <button
+                                className="bg-blue-500 text-center h-10 flex items-center px-4 rounded-md cursor-pointer hover:bg-blue-600 text-white font-medium transition-colors"
+                                onClick={placeholderValidate}
+                            >
+                                Validate
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>}
-
+            }
         </div>
     );
-
 }
-
 
 export default Search;

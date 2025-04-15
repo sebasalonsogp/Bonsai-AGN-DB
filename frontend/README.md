@@ -182,11 +182,10 @@ The UI is built with a mobile-first approach using:
   - Simple layout showcasing the purpose of the application
   - Entry point for new users
 
-- **Search**: Advanced search interface with query builder
-  - Uses react-querybuilder for complex query construction
-  - Connects to backend search API
-  - Provides data export functionality
-  - Handles result pagination and display
+- **Search**: Page container for the search functionality, including access control.
+  - Presents a password prompt for access (placeholder mechanism).
+  - Renders the `QuerySearch` component upon successful validation.
+  - Does *not* contain the query builder logic itself.
 
 - **People**: Team members showcase
   - Displays researchers and contributors in a responsive grid
